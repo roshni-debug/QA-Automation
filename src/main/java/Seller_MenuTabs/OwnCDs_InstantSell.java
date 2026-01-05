@@ -1,0 +1,306 @@
+/*
+    Testcase Steps for Seller: Instant Sell Own CD
+
+    1. Read mobile number from console
+    2. Open Login Page
+    3. Click Login/Register Button
+    4. Enter Mobile and Click Login
+    5. Fetch OTP from Database
+    6. Enter OTP Inputs
+    7. Dismiss KYC Popup (if any)
+    8. Navigate to List of CDs
+    9. Click Instant Sell Button
+    10. Click Confirm Sell
+    11. Click Final Continue
+*/
+
+package Seller_MenuTabs;
+
+import java.time.Duration;
+import java.util.List;
+import java.io.IOException;
+import java.sql.*;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
+import org.testng.annotations.*;
+import io.github.bonigarcia.wdm.WebDriverManager;
+
+public class OwnCDs_InstantSell {
+
+    private WebDriver driver;
+    private Actions actions;
+    private WebDriverWait wait;
+    private static String mobileNumber;
+    private static String otp;
+
+    @BeforeClass
+    public void setup() {
+        System.out.println("***************  TestCase Execution for Seller Instant CD Sell Flow  ***************");
+        try {
+            WebDriverManager.chromedriver().setup();
+            driver = new ChromeDriver();
+            actions = new Actions(driver);
+            driver.manage().window().maximize();
+            wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+            System.out.println("WebDriver setup successful.");
+        } catch (Exception e) {
+            Assert.fail("FAILED [Setup]: WebDriver failed to setup: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 1)
+    public void testGetMobileNumberInput() {
+        System.out.println("\n========== Step 1: Get 10-digit mobile number input from console ==========");
+        try {
+            mobileNumber = readTenDigitsFromConsole();
+            Assert.assertEquals(mobileNumber.length(), 10, "FAILED [Input Error]: Mobile number entered is not 10 digits.");
+        } catch (Exception e) {
+            Assert.fail("FAILED [Console Input]: Could not read mobile number from console. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 2, dependsOnMethods = "testGetMobileNumberInput")
+    public void testOpenLoginPage() {
+        System.out.println("\n========== Step 2: Navigate to the login page ==========");
+        try {
+            driver.get("https://digielv.mmcm.in/");
+            Assert.assertNotNull(driver.getTitle(), "FAILED [Navigation]: Page did not load or title is null.");
+        } catch (Exception e) {
+            Assert.fail("FAILED [Page Load]: Could not load the login page. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 3, dependsOnMethods = "testOpenLoginPage")
+    public void testClickLoginRegisterButton() {
+        System.out.println("\n========== Step 3: Click Login/Register button ==========");
+        try {
+            driver.findElement(By.xpath("//*[@id=\"navbarNav\"]/ul/li[5]/a/button")).click();
+        } catch (Exception e) {
+            Assert.fail("FAILED [Login/Register]: Couldn't find or click the Login/Register button. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 4, dependsOnMethods = "testClickLoginRegisterButton")
+    public void testEnterMobileAndClickLogin() {
+        System.out.println("\n========== Step 4: Enter mobile number and click Login ==========");
+        try {
+            driver.findElement(By.xpath("//input[@placeholder='Enter Your Mobile Number']")).sendKeys(mobileNumber);
+            driver.findElement(By.xpath("//button[normalize-space(text())='Login']")).click();
+        } catch (Exception e) {
+            Assert.fail("FAILED [Mobile/Login]: Could not enter mobile or click Login. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 5, dependsOnMethods = "testEnterMobileAndClickLogin")
+    public void testFetchOtpFromDB() {
+        System.out.println("\n========== Step 5: Fetch OTP from database ==========");
+        try {
+            otp = fetchOtpFromDatabase(mobileNumber);
+            Assert.assertNotNull(otp, "FAILED [OTP Fetch]: OTP fetched is null from DB (DB error or wrong mobile).");
+            Assert.assertEquals(otp.length(), 6, "FAILED [OTP Fetch]: OTP is not 6 digits. OTP=" + otp);
+        } catch (Exception e) {
+            Assert.fail("FAILED [OTP Fetch DB]: Could not fetch OTP from DB: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 6, dependsOnMethods = "testFetchOtpFromDB")
+    public void testEnterOtpInputs() throws InterruptedException {
+        System.out.println("\n========== Step 6: Enter OTP into input fields ==========");
+        try {
+            WebDriverWait otpWait = new WebDriverWait(driver, Duration.ofSeconds(20));
+            List<WebElement> otpInputs = otpWait.until(
+                ExpectedConditions.visibilityOfAllElementsLocatedBy(
+                    By.xpath("//p-inputotp//input[contains(@class,'p-inputotp-input')]")
+                )
+            );
+            Assert.assertEquals(otpInputs.size(), 6, "FAILED [OTP Boxes]: Did not find 6 OTP input boxes. Found: " + otpInputs.size());
+            for (int i = 0; i < 6; i++) {
+                WebElement input = otpInputs.get(i);
+                ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", input);
+                input.click();
+                input.clear();
+                input.sendKeys(Character.toString(otp.charAt(i)));
+                Thread.sleep(100);
+            }
+        } catch (Exception e) {
+            Assert.fail("FAILED [OTP Entry]: Could not enter OTP. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 7, dependsOnMethods = "testEnterOtpInputs")
+    public void testDismissKycPopupIfPresent() {
+        System.out.println("\n========== Step 7: Handle/dismiss optional KYC popup if it appears ==========");
+        try {
+            WebDriverWait popupWait = new WebDriverWait(driver, Duration.ofSeconds(5));
+            WebElement cancelPopupButton = popupWait.until(
+                ExpectedConditions.elementToBeClickable(
+                    By.xpath("//*[@class=\"btn-cancel\"]")
+                )
+            );
+            cancelPopupButton.click();
+            System.out.println("KYC cancellation popup appeared and was handled.");
+        } catch (Exception e) {
+            System.out.println("No KYC popup present, continuing. (Reason: " + e.getMessage() + ")");
+        }
+    }
+
+    @Test(priority = 8, dependsOnMethods = "testDismissKycPopupIfPresent")
+    public void testNavigateToListOfCDs() {
+        System.out.println("\n========== Step 8: Click 'List of CDs' from the sidebar ==========");
+        try {
+            WebDriverWait sideBar = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebElement listCDs = sideBar.until(
+                ExpectedConditions.elementToBeClickable(By.xpath("//a[contains(normalize-space(.), 'List of CDs')]"))
+            );
+            listCDs.click();
+        } catch (Exception e) {
+            Assert.fail("FAILED [Sidebar/List of CDs]: Could not click 'List of CDs'. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 9, dependsOnMethods = "testNavigateToListOfCDs")
+    public void testClickInstantSellButton() {
+        System.out.println("\n========== Step 9: Click Instant Sell button ==========");
+        try {
+            WebDriverWait button = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebElement instantSell = button.until(
+                ExpectedConditions.elementToBeClickable(By.xpath("//*[@class=\"btn btn-primary w-100 rounded-pill\"and contains(text(),' Instant Sell ')]"))
+            );
+            instantSell.click();
+        } catch (Exception e) {
+            Assert.fail("FAILED [Instant Sell Button]: Could not click Instant Sell button. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 10, dependsOnMethods = "testClickInstantSellButton")
+    public void testClickConfirmSell() {
+        System.out.println("\n========== Step 10: Click Confirm Sell ==========");
+        try {
+            WebDriverWait button1 = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebElement confirm = button1.until(
+                ExpectedConditions.elementToBeClickable(By.xpath("(//*[@class=\"btn btn-success rounded-pill\" and contains(text(), 'Confirm')])[4]"))
+            );
+            confirm.click();
+        } catch (Exception e) {
+            Assert.fail("FAILED [Confirm Sell]: Could not click Confirm button. Reason: " + e.getMessage());
+        }
+    }
+
+    @Test(priority = 11, dependsOnMethods = "testClickConfirmSell")
+    public void testClickContinueButton() {
+        System.out.println("\n========== Step 11: Click Final Continue ==========");
+        try {
+            WebDriverWait button2 = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebElement continueBtn = button2.until(
+                ExpectedConditions.elementToBeClickable(By.xpath("(//*[@class=\"btn btn-primary w-100 rounded-pill\" and contains(text(), 'Continue')])[1]"))
+            );
+            continueBtn.click();
+            System.out.println("Test scenario for instant CD Sell completed successfully.");
+        } catch (Exception e) {
+            Assert.fail("FAILED [Final Continue]: Could not click the final Continue. Reason: " + e.getMessage());
+        }
+    }
+    
+    @AfterClass
+    public void teardown() {
+        System.out.println("Test Execution Completed.");
+
+        if (driver != null) {
+            try {
+                System.out.println("Logged Out Successfully!");
+            } finally {
+                driver.quit();   //
+            }
+        }
+
+        if (mobileNumber != null && !mobileNumber.isEmpty()) {
+            updateIsLoggedInInDB(mobileNumber);
+        }
+    }
+
+
+    // === Utility Methods ===
+    	public static String updateIsLoggedInInDB(String mobileNumber) {
+        String url = "jdbc:postgresql://elv-hyd-uat-cluster.cluster-ro-cxua0wsmu5p7.ap-south-1.rds.amazonaws.com:1521/mmcmuat";
+        String user = "uatuser";
+        String password = "password@123";
+        String update = "UPDATE common.user_mstr SET is_logged_in = 0 WHERE mobile_no = ?";
+
+        try {
+            Class.forName("org.postgresql.Driver");
+            Connection conn = DriverManager.getConnection(url, user, password);
+            PreparedStatement pstmt = conn.prepareStatement(update);
+            pstmt.setLong(1, Long.parseLong(mobileNumber));  
+            int rows = pstmt.executeUpdate();
+            if (rows > 0) {
+                System.out.println("is_logged_in reset in DB for mobile: " + mobileNumber);
+            } else {
+                System.out.println("No row updated for mobile: " + mobileNumber);
+            }
+            pstmt.close();
+            conn.close();
+        } catch (Exception e) {
+            System.out.println("Error updating is_logged_in in DB: " + e.getMessage());
+        }
+		return update;  
+    }
+    
+    
+    // Utility method to read 10 digits from console
+    public static String readTenDigitsFromConsole() {
+        StringBuilder sb = new StringBuilder(10);
+        System.out.print("Please enter your 10-digit mobile number: ");
+        try {
+            while (sb.length() < 10) {
+                int ch = System.in.read();
+                if (ch == -1) break;
+                if (ch == '\r' || ch == '\n') continue;
+                char c = (char) ch;
+                if (c >= '0' && c <= '9') {
+                    sb.append(c);
+                    System.out.print(c);
+                }
+            }
+            int leftover;
+            do { leftover = System.in.read(); } while (leftover != -1 && leftover != '\n');
+        } catch (IOException e) {
+            Assert.fail("FAILED [Console Read]: Failed reading mobile from console: " + e.getMessage());
+        }
+        return sb.toString();
+    }
+
+    // Utility method to fetch OTP by mobile
+    public static String fetchOtpFromDatabase(String mobileNumber) {
+        String otp = null;
+        String url = "jdbc:postgresql://elv-hyd-uat-cluster.cluster-ro-cxua0wsmu5p7.ap-south-1.rds.amazonaws.com:1521/mmcmuat";
+        String user = "uatuser";
+        String password = "password@123";
+        String query1 = "SELECT otp FROM common.user_mstr WHERE mobile_no = " + mobileNumber;
+
+        try {
+            Class.forName("org.postgresql.Driver");
+            Connection conn = DriverManager.getConnection(url, user, password);
+            Statement stmt1 = conn.createStatement();
+            ResultSet rs1 = stmt1.executeQuery(query1);
+            if (rs1.next()) {
+                otp = rs1.getString("otp");
+            } else {
+                Assert.fail("FAILED [DB Query]: No user found with mobile number: " + mobileNumber);
+            }
+            rs1.close();
+            stmt1.close();
+            conn.close();
+        } catch (Exception e) {
+            Assert.fail("FAILED [DB OTP Fetch]: DB error while fetching OTP: " + e.getMessage());
+        }
+
+        return otp;
+    }
+}
