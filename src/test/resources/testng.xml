@@ -1,13 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
-<suite name="SellerCDsParallelSuite" parallel="classes" thread-count="3">
-
-  <test name="SellerOwnCDsParallelTest">
-    <classes>
-      <class name="Seller_MenuTabs.OwnCDs_InstantSell"/>
-      <class name="Seller_MenuTabs.OwnCDs_Sell"/>
-      <class name="Seller_MenuTabs.OwnCDs_Utilize"/>
-    </classes>
-  </test>
-
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="DigiELV Automation Suite">
+    <test name="All Tests">
+        <packages>
+            <package name="Buyer_MenuTabs"/>
+            <package name="Seller_MenuTabs"/>
+            <package name="CDRegisteration"/>
+            <package name="UserRegistration"/>
+        </packages>
+    </test>
 </suite>
